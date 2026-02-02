@@ -172,8 +172,9 @@ void power_deep_sleep(uint32_t seconds)
         esp_sleep_enable_timer_wakeup(seconds * 1000000ULL);
     }
 
-    // Enable wake on GPIO (BOOT button)
-    esp_sleep_enable_ext1_wakeup(GPIO_NUM_0, ESP_EXT1_WAKEUP_ANY_LOW);
+    // Enable wake on GPIO (BOOT button = GPIO0)
+    // ext1 requires a bitmask, not GPIO number directly
+    esp_sleep_enable_ext1_wakeup((1ULL << GPIO_NUM_0), ESP_EXT1_WAKEUP_ANY_LOW);
 
     // Enter deep sleep
     esp_deep_sleep_start();
