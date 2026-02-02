@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 // Default font scale factor (1.0 = original size, 0.75 = 75% size)
-#define OLED_CHINESE_FONT_SCALE_DEFAULT  0.75f
+#define OLED_CHINESE_FONT_SCALE_DEFAULT  1.0f
 
 /**
  * Set Chinese font scale factor
