@@ -535,15 +535,13 @@ void app_main(void)
         ESP_LOGI(TAG, "OLED display initialized");
 
         // Initialize Chinese font for OLED menu
-        // Font file should be at /sdcard/font/GB2312-16.fon on SD card
-        ret = font_init("/sdcard/font/GB2312-16.fon");
+        // Font file should be at /sdcard/font/GB2312-12.fon on SD card (HZK12, 12x12 pixels)
+        ret = font_init("/sdcard/font/GB2312-12.fon");
         if (ret == ESP_OK) {
             ESP_LOGI(TAG, "Chinese font loaded successfully");
-            // Set index offset for 267616-byte HZK16 variant
-            font_set_index_offset(-2);
         } else {
             ESP_LOGW(TAG, "Chinese font not available: %s", esp_err_to_name(ret));
-            ESP_LOGI(TAG, "Please copy font/GB2312-16.fon to SD card /font/ directory");
+            ESP_LOGI(TAG, "Please copy HZK12 to SD card /font/ directory and rename to GB2312-12.fon");
         }
     } else {
         ESP_LOGW(TAG, "OLED not found (SDA=%d, SCL=%d)", OLED_SDA_PIN, OLED_SCL_PIN);

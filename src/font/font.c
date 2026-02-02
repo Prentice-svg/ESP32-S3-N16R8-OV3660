@@ -171,6 +171,22 @@ esp_err_t font_init(const char *font_path)
         return ESP_OK;
     }
 
+    // HZK12 font: 12x12 pixels, 18 bytes per character
+    // 196272 bytes = 18 * 10872 chars + 576-byte header
+    if (file_size == 196272) {
+        font_state.font_size = 12;
+        font_state.char_width = 12;
+        font_state.char_height = 12;
+        font_state.char_bitmap_size = 18;
+        font_state.header_offset = 576;
+        font_state.index_adjust = 0;
+        font_state.font_available = true;
+
+        ESP_LOGI(TAG, "HZK12 font detected: 12x12 (18 bytes/char), file size: %llu (with 576-byte header)",
+                 (unsigned long long)file_size);
+        return ESP_OK;
+    }
+
     ESP_LOGW(TAG, "Font file size doesn't match known formats. File size: %llu",
              (unsigned long long)file_size);
     font_state.font_available = false;
