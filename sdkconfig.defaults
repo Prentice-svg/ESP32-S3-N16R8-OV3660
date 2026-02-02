@@ -1,0 +1,29 @@
+# ESP32-S3-N16R8-OV3660 SDK Configuration Defaults
+# 16MB Flash, 8MB PSRAM
+
+# Flash size: 16MB
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
+# Disable PSRAM temporarily to avoid ESP-IDF 5.3.1 WiFi PSRAM check issue
+# Can be re-enabled once the issue is resolved
+# CONFIG_SPIRAM=y
+
+# Partition table
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions.csv"
+CONFIG_PARTITION_TABLE_FILENAME="partitions.csv"
+
+# FatFS Long Filename Support (required for timestamp-based filenames)
+CONFIG_FATFS_LFN_HEAP=y
+CONFIG_FATFS_MAX_LFN=255
+
+# Camera settings - enable all common sensors for detection
+CONFIG_OV3660_SUPPORT=y
+CONFIG_OV2640_SUPPORT=y
+CONFIG_OV5640_SUPPORT=y
+CONFIG_OV7725_SUPPORT=y
+CONFIG_OV7670_SUPPORT=y
+CONFIG_GC2145_SUPPORT=y
+CONFIG_GC032A_SUPPORT=y
+CONFIG_GC0308_SUPPORT=y

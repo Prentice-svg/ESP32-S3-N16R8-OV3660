@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(idf.py:*)",
+      "Bash(brew install:*)",
+      "Bash(pio run:*)",
+      "Bash(source:*)",
+      "Bash(pio:*)",
+      "Skill(superpowers:systematic-debugging)",
+      "Bash(/Users/prentice/.platformio/penv/bin/python -m platformio.cli run:*)",
+      "Bash(tee:*)",
+      "Bash(/Users/prentice/.platformio/penv/bin/pio run:*)",
+      "Bash(tree:*)",
+      "Bash(wc:*)",
+      "Bash(~/.platformio/penv/bin/pio run:*)",
+      "Bash(pip3 --version:*)",
+      "Bash(pip3 install:*)",
+      "Bash(python3 -m platformio:*)",
+      "Bash(grep:*)"
+    ]
+  }
+}

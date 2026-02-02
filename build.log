@@ -1,0 +1,94 @@
+/Users/prentice/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Processing esp32s3cam (platform: espressif32; board: esp32-s3-devkitc-1; framework: espidf)
+--------------------------------------------------------------------------------
+/Users/prentice/Library/Python/3.9/lib/python/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32-s3-devkitc-1.html
+PLATFORM: Espressif 32 (6.9.0) > Espressif ESP32-S3-DevKitC-1-N8 (8 MB QD, No PSRAM)
+HARDWARE: ESP32S3 240MHz, 320KB RAM, 8MB Flash
+DEBUG: Current (esp-builtin) On-board (esp-builtin) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - framework-espidf @ 3.50301.0 (5.3.1) 
+ - tool-cmake @ 3.16.4 
+ - tool-esptoolpy @ 1.40501.0 (4.5.1) 
+ - tool-ninja @ 1.9.0 
+ - tool-riscv32-esp-elf-gdb @ 12.1.0+20221002 
+ - tool-xtensa-esp-elf-gdb @ 12.1.0+20221002 
+ - toolchain-esp32ulp @ 1.23800.240113 (2.38.0) 
+ - toolchain-riscv32-esp @ 13.2.0+20240530 
+ - toolchain-xtensa-esp-elf @ 13.2.0+20240530
+Reading CMake configuration...
+Warning! Flash memory size mismatch detected. Expected 16MB, found 2MB!
+Please select a proper value in your `sdkconfig.defaults` or via the `menuconfig` target!
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 0 compatible libraries
+Scanning dependencies...
+No dependencies
+Building in release mode
+Compiling .pio/build/esp32s3cam/src/camera/camera.c.o
+Compiling .pio/build/esp32s3cam/src/common/config.c.o
+Compiling .pio/build/esp32s3cam/src/lcd/lcd.c.o
+Compiling .pio/build/esp32s3cam/src/main.c.o
+Compiling .pio/build/esp32s3cam/src/power/power.c.o
+Compiling .pio/build/esp32s3cam/src/sdcard/sdcard.c.o
+Compiling .pio/build/esp32s3cam/src/timelapse/timelapse.c.o
+In file included from src/power/power.c:12:
+/Users/prentice/.platformio/packages/framework-espidf/components/driver/deprecated/driver/adc.h:19:2: warning: #warning "legacy adc driver is deprecated, please migrate to use esp_adc/adc_oneshot.h and esp_adc/adc_continuous.h for oneshot mode and continuous mode drivers respectively" [-Wcpp]
+   19 | #warning "legacy adc driver is deprecated, please migrate to use esp_adc/adc_oneshot.h and esp_adc/adc_continuous.h for oneshot mode and continuous mode drivers respectively"
+      |  ^~~~~~~
+In file included from src/power/power.c:13:
+/Users/prentice/.platformio/packages/framework-espidf/components/esp_adc/deprecated/include/esp_adc_cal.h:17:2: warning: #warning "legacy adc calibration driver is deprecated, please migrate to use esp_adc/adc_cali.h and esp_adc/adc_cali_scheme.h" [-Wcpp]
+   17 | #warning "legacy adc calibration driver is deprecated, please migrate to use esp_adc/adc_cali.h and esp_adc/adc_cali_scheme.h"
+      |  ^~~~~~~
+src/power/power.c: In function 'power_init':
+src/power/power.c:48:5: warning: 'ADC_ATTEN_DB_11' is deprecated [-Wdeprecated-declarations]
+   48 |     adc1_config_channel_atten(ADC_CHANNEL, ADC_ATTEN);
+      |     ^~~~~~~~~~~~~~~~~~~~~~~~~
+In file included from /Users/prentice/.platformio/packages/framework-espidf/components/driver/deprecated/driver/adc_types_legacy.h:8,
+                 from /Users/prentice/.platformio/packages/framework-espidf/components/driver/deprecated/driver/adc.h:15:
+/Users/prentice/.platformio/packages/framework-espidf/components/hal/include/hal/adc_types.h:51:5: note: declared here
+   51 |     ADC_ATTEN_DB_11 __attribute__((deprecated)) = ADC_ATTEN_DB_12,  ///<This is deprecated, it behaves the same as `ADC_ATTEN_DB_12`
+      |     ^~~~~~~~~~~~~~~
+src/power/power.c:51:5: warning: 'ADC_ATTEN_DB_11' is deprecated [-Wdeprecated-declarations]
+   51 |     esp_adc_cal_value_t val_type = esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN, ADC_WIDTH, 1100, &adc_chars);
+      |     ^~~~~~~~~~~~~~~~~~~
+/Users/prentice/.platformio/packages/framework-espidf/components/hal/include/hal/adc_types.h:51:5: note: declared here
+   51 |     ADC_ATTEN_DB_11 __attribute__((deprecated)) = ADC_ATTEN_DB_12,  ///<This is deprecated, it behaves the same as `ADC_ATTEN_DB_12`
+      |     ^~~~~~~~~~~~~~~
+Compiling .pio/build/esp32s3cam/src/wifi/webserver.c.o
+Compiling .pio/build/esp32s3cam/src/wifi/wifi.c.o
+Generating LD script .pio/build/esp32s3cam/esp-idf/esp_system/ld/memory.ld.in
+Generating LD script .pio/build/esp32s3cam/esp-idf/esp_system/ld/sections.ld.in
+Compiling .pio/build/esp32s3cam/app_trace/app_trace.c.o
+Compiling .pio/build/esp32s3cam/app_trace/app_trace_util.c.o
+Compiling .pio/build/esp32s3cam/app_trace/host_file_io.c.o
+Compiling .pio/build/esp32s3cam/app_trace/port/port_uart.c.o
+In file included from src/wifi/wifi.c:9:
+src/wifi/wifi.c: In function 'wifi_init':
+src/wifi/wifi.c:53:79: error: 'wifi_event_handler' undeclared (first use in this function); did you mean 'esp_event_handler_t'?
+   53 |     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
+      |                                                                               ^~~~~~~~~~~~~~~~~~
+/Users/prentice/.platformio/packages/framework-espidf/components/esp_common/include/esp_err.h:116:30: note: in definition of macro 'ESP_ERROR_CHECK'
+  116 |         esp_err_t err_rc_ = (x);                                        \
+      |                              ^
+src/wifi/wifi.c:53:79: note: each undeclared identifier is reported only once for each function it appears in
+   53 |     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
+      |                                                                               ^~~~~~~~~~~~~~~~~~
+/Users/prentice/.platformio/packages/framework-espidf/components/esp_common/include/esp_err.h:116:30: note: in definition of macro 'ESP_ERROR_CHECK'
+  116 |         esp_err_t err_rc_ = (x);                                        \
+      |                              ^
+src/wifi/wifi.c: At top level:
+src/wifi/wifi.c:209:13: warning: 'wifi_event_handler' defined but not used [-Wunused-function]
+  209 | static void wifi_event_handler(void *arg, esp_event_base_t event_base,
+      |             ^~~~~~~~~~~~~~~~~~
+Compiling .pio/build/esp32s3cam/app_update/esp_ota_ops.c.o
+*** [.pio/build/esp32s3cam/src/wifi/wifi.c.o] Error 1
+========================== [FAILED] Took 1.49 seconds ==========================
+
+Environment    Status    Duration
+-------------  --------  ------------
+esp32s3cam     FAILED    00:00:01.488
+==================== 1 failed, 0 succeeded in 00:00:01.488 ====================
