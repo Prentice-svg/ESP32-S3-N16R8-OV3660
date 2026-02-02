@@ -13,6 +13,29 @@
 static const char *TAG = "oled_chinese";
 static bool s_logged_first_char = false;
 
+// Font scale factor (0.5 to 1.0)
+static float s_font_scale = OLED_CHINESE_FONT_SCALE_DEFAULT;
+
+/**
+ * Set Chinese font scale factor
+ */
+void oled_set_chinese_font_scale(float scale)
+{
+    // Clamp scale between 0.5 and 1.0
+    if (scale < 0.5f) scale = 0.5f;
+    if (scale > 1.0f) scale = 1.0f;
+    s_font_scale = scale;
+    ESP_LOGI(TAG, "Chinese font scale set to: %.2f", s_font_scale);
+}
+
+/**
+ * Get current Chinese font scale factor
+ */
+float oled_get_chinese_font_scale(void)
+{
+    return s_font_scale;
+}
+
 /**
  * Draw a single GB2312 Chinese character
  * Standard HZK16 format (horizontal scanning):
@@ -20,19 +43,37 @@ static bool s_logged_first_char = false;
  * - Row-major: 2 bytes per row, 16 rows
  * - Left to right, top to bottom
  * - MSB of each byte is leftmost pixel
+ *
+ * With scaling support to reduce font size
  */
 static void oled_draw_char_bitmap(int x, int y, const uint8_t *bitmap,
                                   int char_width, int char_height, bool on)
 {
     if (!bitmap) return;
 
+    // Apply scaling - sample from original bitmap
+    int scaled_width = (int)(char_width * s_font_scale);
+    int scaled_height = (int)(char_height * s_font_scale);
+
+    // Ensure minimum size
+    if (scaled_width < 8) scaled_width = 8;
+    if (scaled_height < 8) scaled_height = 8;
+
     // Standard HZK16 row-major format
     int bytes_per_row = (char_width + 7) / 8;  // 2 for 16-pixel width
 
-    for (int row = 0; row < char_height; row++) {
-        for (int col = 0; col < char_width; col++) {
-            int byte_idx = row * bytes_per_row + (col / 8);
-            int bit_idx = 7 - (col % 8);  // MSB is leftmost pixel
+    for (int row = 0; row < scaled_height; row++) {
+        for (int col = 0; col < scaled_width; col++) {
+            // Calculate corresponding position in original bitmap
+            int src_row = (int)(row / s_font_scale);
+            int src_col = (int)(col / s_font_scale);
+
+            if (src_row >= char_height || src_col >= char_width) {
+                continue;
+            }
+
+            int byte_idx = src_row * bytes_per_row + (src_col / 8);
+            int bit_idx = 7 - (src_col % 8);  // MSB is leftmost pixel
 
             if (byte_idx < char_height * bytes_per_row) {
                 uint8_t pixel = (bitmap[byte_idx] >> bit_idx) & 1;
@@ -108,12 +149,16 @@ int oled_draw_chinese_char(int x, int y, uint8_t char_hi, uint8_t char_lo, bool 
     if (log_this_char) {
         char rowbuf[65];
         int after_on = 0;
-        int max_cols = font_width;
+        int scaled_width = (int)(font_width * s_font_scale);
+        int scaled_height = (int)(font_height * s_font_scale);
+        if (scaled_width < 8) scaled_width = 8;
+        if (scaled_height < 8) scaled_height = 8;
+        int max_cols = scaled_width;
         if (max_cols >= (int)sizeof(rowbuf)) {
             max_cols = sizeof(rowbuf) - 1;
         }
 
-        for (int row = 0; row < font_height; row++) {
+        for (int row = 0; row < scaled_height; row++) {
             for (int col = 0; col < max_cols; col++) {
                 bool pixel_on = oled_get_pixel_state(x + col, y + row);
                 after_on += pixel_on ? 1 : 0;
@@ -123,12 +168,15 @@ int oled_draw_chinese_char(int x, int y, uint8_t char_hi, uint8_t char_lo, bool 
             ESP_LOGI(TAG, "Row %02d (%d): %s", row, y + row, rowbuf);
         }
 
-        ESP_LOGI(TAG, "Chinese block (%d,%d) %dx%d on-before=%d on-after=%d",
-                 x, y, font_width, font_height, before_on, after_on);
+        ESP_LOGI(TAG, "Chinese block (%d,%d) %dx%d (scaled from %dx%d) on-before=%d on-after=%d",
+                 x, y, scaled_width, scaled_height, font_width, font_height, before_on, after_on);
         s_logged_first_char = true;
     }
 
-    return font_width;  // Return character width for positioning
+    // Return scaled width for positioning
+    int scaled_width = (int)(font_width * s_font_scale);
+    if (scaled_width < 8) scaled_width = 8;
+    return scaled_width;  // Return character width for positioning
 }
 
 int oled_draw_chinese_string(int x, int y, const char *str, bool on)
@@ -190,17 +238,21 @@ int oled_draw_mixed_string(int x, int y, const char *str, int font_size, bool on
         chinese_width = font_size;
     }
 
+    // Apply scaling to get actual display width
+    int scaled_chinese_width = (int)(chinese_width * s_font_scale);
+    if (scaled_chinese_width < 8) scaled_chinese_width = 8;
+
     int current_x = x;
     int current_y = y;
     const uint8_t *ptr = (const uint8_t *)str;
-    
+
     // Detect encoding: GB2312 or UTF-8
     bool use_gb2312_direct = is_likely_gb2312(ptr);
 
     while (*ptr) {
         if (*ptr == '\n') {
             current_x = x;
-            current_y += chinese_width;
+            current_y += scaled_chinese_width;
             ptr++;
             continue;
         }
@@ -209,8 +261,8 @@ int oled_draw_mixed_string(int x, int y, const char *str, int font_size, bool on
             // ASCII character
             if (current_x + 8 > OLED_WIDTH) {
                 current_x = x;
-                current_y += chinese_width;
-                if (current_y + chinese_width > OLED_HEIGHT) {
+                current_y += scaled_chinese_width;
+                if (current_y + scaled_chinese_width > OLED_HEIGHT) {
                     break;
                 }
             }
@@ -220,10 +272,10 @@ int oled_draw_mixed_string(int x, int y, const char *str, int font_size, bool on
         }
 
         // Check line wrapping before drawing Chinese character
-        if (current_x + chinese_width > OLED_WIDTH) {
+        if (current_x + scaled_chinese_width > OLED_WIDTH) {
             current_x = x;
-            current_y += chinese_width;
-            if (current_y + chinese_width > OLED_HEIGHT) {
+            current_y += scaled_chinese_width;
+            if (current_y + scaled_chinese_width > OLED_HEIGHT) {
                 break;
             }
         }
@@ -287,16 +339,25 @@ esp_err_t oled_show_chinese_message(const char *line1, const char *line2, const 
 
     oled_clear();
 
+    // Calculate line height based on scaled font
+    int font_size = 16;  // default
+    font_get_info(&font_size, NULL);
+    int scaled_height = (int)(font_size * s_font_scale);
+    if (scaled_height < 8) scaled_height = 8;
+
+    // Add small padding between lines
+    int line_spacing = scaled_height + 4;
+
     if (line1) {
         oled_draw_mixed_string(0, 0, line1, 16, true);
     }
 
     if (line2) {
-        oled_draw_mixed_string(0, 20, line2, 16, true);
+        oled_draw_mixed_string(0, line_spacing, line2, 16, true);
     }
 
     if (line3) {
-        oled_draw_mixed_string(0, 40, line3, 16, true);
+        oled_draw_mixed_string(0, line_spacing * 2, line3, 16, true);
     }
 
     oled_update();

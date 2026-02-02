@@ -14,6 +14,22 @@
 extern "C" {
 #endif
 
+// Default font scale factor (1.0 = original size, 0.75 = 75% size)
+#define OLED_CHINESE_FONT_SCALE_DEFAULT  0.75f
+
+/**
+ * Set Chinese font scale factor
+ * @param scale Scale factor (0.5 to 1.0, where 1.0 = full 16x16 size)
+ *             Example: 0.75 = 12x12 display, 0.5 = 8x8 display
+ */
+void oled_set_chinese_font_scale(float scale);
+
+/**
+ * Get current Chinese font scale factor
+ * @return Current scale factor
+ */
+float oled_get_chinese_font_scale(void);
+
 /**
  * Draw a single GB2312 Chinese character
  * @param x X position on screen
