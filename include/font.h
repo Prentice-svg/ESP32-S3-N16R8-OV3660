@@ -32,6 +32,13 @@ extern "C" {
 esp_err_t font_init(const char *font_path);
 
 /**
+ * Manually set index offset for HZK16 format tuning
+ * Use this for debugging different HZK16 file variants
+ * @param offset Offset value to add/subtract from character index
+ */
+void font_set_index_offset(int offset);
+
+/**
  * Deinitialize font system
  */
 esp_err_t font_deinit(void);
@@ -85,6 +92,24 @@ bool font_is_valid_gb2312(uint8_t char_hi, uint8_t char_lo);
  * @return ESP_OK if font info available
  */
 esp_err_t font_get_info(int *size_out, uint32_t *file_size);
+
+/**
+ * Convert Unicode code point to GB2312 bytes
+ * @param unicode Unicode code point (typically from UTF-8 decoding)
+ * @param char_hi Output for high byte of GB2312 code
+ * @param char_lo Output for low byte of GB2312 code
+ * @return true if conversion succeeded
+ */
+bool font_unicode_to_gb2312(uint16_t unicode, uint8_t *char_hi, uint8_t *char_lo);
+
+/**
+ * Decode next UTF-8 character and convert it to GB2312
+ * @param utf8_ptr Pointer to a UTF-8 string cursor (will advance past the decoded char)
+ * @param char_hi Output for high byte of GB2312 code (valid when function returns true)
+ * @param char_lo Output for low byte of GB2312 code (valid when function returns true)
+ * @return true if conversion succeeded and GB2312 character is available
+ */
+bool font_utf8_to_gb2312(const uint8_t **utf8_ptr, uint8_t *char_hi, uint8_t *char_lo);
 
 #ifdef __cplusplus
 }

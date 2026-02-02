@@ -353,6 +353,16 @@ void oled_set_pixel(int x, int y, bool on)
     }
 }
 
+bool oled_get_pixel_state(int x, int y)
+{
+    if (x < 0 || x >= OLED_WIDTH || y < 0 || y >= OLED_HEIGHT) {
+        return false;
+    }
+
+    int idx = x + (y / 8) * OLED_WIDTH;
+    return (display_buffer[idx] >> (y & 7)) & 1;
+}
+
 void oled_draw_hline(int x, int y, int w, bool on)
 {
     for (int i = 0; i < w; i++) {
@@ -683,28 +693,24 @@ void oled_show_menu(const char **items, int count, int selected)
         for (int i = 0; i < visible && (start + i) < count; i++) {
             int y = 14 + i * 18;  // 18-pixel spacing for Chinese items
             bool is_sel = (start + i) == selected;
+            int item_height = 18;
+
+            // Always clear the row to avoid artifacts when moving the cursor
+            oled_fill_rect(0, y - 1, 128, item_height, false);
 
             if (is_sel) {
-                oled_fill_rect(0, y - 1, 128, 18, true);  // highlight bar
-                // Draw Chinese text in black on white bar
-                if (font_is_chinese_available()) {
-                    oled_draw_chinese_string(6, y, items[start + i], true);
-                } else {
-                    oled_draw_string_color(6, y, items[start + i], 1, false);
-                }
+                // Outline + left indicator bar for selection instead of full inversion
+                oled_draw_rect(0, y - 1, 128, item_height, true);
+                oled_fill_rect(0, y - 1, 3, item_height, true);
+            }
+
+            // Draw text (always white for readability)
+            if (font_is_chinese_available()) {
+                oled_draw_chinese_string(6, y, items[start + i], true);
             } else {
-                // Draw Chinese text normally
-                if (font_is_chinese_available()) {
-                    oled_draw_chinese_string(6, y, items[start + i], false);
-                } else {
-                    oled_draw_string_color(6, y, items[start + i], 1, true);
-                }
+                oled_draw_string_color(6, y, items[start + i], 1, true);
             }
 
-            // Left indicator bar for selected
-            if (is_sel) {
-                oled_fill_rect(0, y - 1, 3, 18, false);
-            }
         }
 
         // Scroll indicator on right side
@@ -764,20 +770,37 @@ void oled_show_menu(const char **items, int count, int selected)
 void oled_show_message(const char *line1, const char *line2, const char *line3)
 {
     oled_clear();
-    
+
     int y = 16;
-    if (line1) {
-        oled_draw_string(0, y, line1, 1);
-        y += 16;
+
+    // Use mixed string drawing if Chinese font is available
+    if (font_is_chinese_available()) {
+        if (line1) {
+            oled_draw_mixed_string(0, y, line1, 16, true);
+            y += 16;
+        }
+        if (line2) {
+            oled_draw_mixed_string(0, y, line2, 16, true);
+            y += 16;
+        }
+        if (line3) {
+            oled_draw_mixed_string(0, y, line3, 16, true);
+        }
+    } else {
+        // Fallback to ASCII-only rendering
+        if (line1) {
+            oled_draw_string(0, y, line1, 1);
+            y += 16;
+        }
+        if (line2) {
+            oled_draw_string(0, y, line2, 1);
+            y += 16;
+        }
+        if (line3) {
+            oled_draw_string(0, y, line3, 1);
+        }
     }
-    if (line2) {
-        oled_draw_string(0, y, line2, 1);
-        y += 16;
-    }
-    if (line3) {
-        oled_draw_string(0, y, line3, 1);
-    }
-    
+
     oled_update();
 }
 

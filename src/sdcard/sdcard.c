@@ -206,6 +206,33 @@ esp_err_t sdcard_read_file(const char *path, uint8_t *data, size_t *len)
     return ESP_OK;
 }
 
+esp_err_t sdcard_read_file_offset(const char *path, size_t offset, uint8_t *data, size_t *len)
+{
+    if (!is_init) return ESP_ERR_INVALID_STATE;
+
+    char full_path[128];
+    snprintf(full_path, sizeof(full_path), "%s/%s", MOUNT_POINT, path);
+
+    FILE *f = fopen(full_path, "rb");
+    if (f == NULL) {
+        ESP_LOGE(TAG, "Failed to open file for reading: %s", path);
+        return ESP_FAIL;
+    }
+
+    // Seek to offset
+    if (fseek(f, (long)offset, SEEK_SET) != 0) {
+        ESP_LOGE(TAG, "Failed to seek to offset %zu in file: %s", offset, path);
+        fclose(f);
+        return ESP_FAIL;
+    }
+
+    size_t read = fread(data, 1, *len, f);
+    *len = read;
+    fclose(f);
+
+    return ESP_OK;
+}
+
 esp_err_t sdcard_delete_file(const char *path)
 {
     if (!is_init) return ESP_ERR_INVALID_STATE;

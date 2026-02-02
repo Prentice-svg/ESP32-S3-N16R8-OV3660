@@ -78,6 +78,14 @@ void oled_invert(bool invert);
 void oled_set_pixel(int x, int y, bool on);
 
 /**
+ * Read current pixel state (debug helper)
+ * @param x X position (0-127)
+ * @param y Y position (0-63)
+ * @return true if pixel is currently set (white)
+ */
+bool oled_get_pixel_state(int x, int y);
+
+/**
  * Draw a horizontal line
  */
 void oled_draw_hline(int x, int y, int w, bool on);

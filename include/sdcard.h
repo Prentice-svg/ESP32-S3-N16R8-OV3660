@@ -75,6 +75,16 @@ esp_err_t sdcard_append_file(const char *path, const uint8_t *data, size_t len);
 esp_err_t sdcard_read_file(const char *path, uint8_t *data, size_t *len);
 
 /**
+ * Read data from a file at specific offset
+ * @param path File path
+ * @param offset Byte offset to start reading from
+ * @param data Buffer to read into
+ * @param len Bytes to read (will be set to actual read size)
+ * @return ESP_OK on success
+ */
+esp_err_t sdcard_read_file_offset(const char *path, size_t offset, uint8_t *data, size_t *len);
+
+/**
  * Delete a file
  * @param path File path
  * @return ESP_OK on success

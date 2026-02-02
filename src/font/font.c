@@ -20,6 +20,8 @@ static struct {
     bool font_available;
     int font_size;
     uint32_t font_file_size;
+    uint32_t header_offset;  // File header offset (0 for standard, 64 for some variants)
+    int index_adjust;        // Index adjustment for different HZK16 formats
     FILE *font_fp;
     char font_path[256];
     int char_width;
@@ -65,7 +67,17 @@ static int32_t gb2312_char_index(uint8_t char_hi, uint8_t char_lo)
     int hi_offset = char_hi - 0xA1;
     int lo_offset = char_lo - 0xA1;
 
-    return hi_offset * 94 + lo_offset;
+    int index = hi_offset * 94 + lo_offset;
+
+    // Apply manual offset adjustment (for debugging different HZK16 formats)
+    if (font_state.index_adjust != 0) {
+        index += font_state.index_adjust;
+        if (index < 0) {
+            index = 0;
+        }
+    }
+
+    return index;
 }
 
 esp_err_t font_init(const char *font_path)
@@ -75,12 +87,20 @@ esp_err_t font_init(const char *font_path)
         return ESP_ERR_INVALID_ARG;
     }
 
+    // Initialize font state
+    memset(&font_state, 0, sizeof(font_state));
     font_state.initialized = true;
     strncpy(font_state.font_path, font_path, sizeof(font_state.font_path) - 1);
     font_state.font_path[sizeof(font_state.font_path) - 1] = '\0';
 
+    // Remove /sdcard prefix if present (sdcard functions add it automatically)
+    const char *rel_path = font_path;
+    if (strncmp(rel_path, "/sdcard/", 8) == 0) {
+        rel_path = font_path + 8;
+    }
+
     // Try to open font file
-    if (!sdcard_exists(font_path)) {
+    if (!sdcard_exists(rel_path)) {
         ESP_LOGW(TAG, "Font file not found: %s", font_path);
         ESP_LOGI(TAG, "System will use ASCII font only. Chinese display will not work.");
         font_state.font_available = false;
@@ -88,7 +108,7 @@ esp_err_t font_init(const char *font_path)
     }
 
     // Get file size
-    int64_t file_size = sdcard_get_file_size(font_path);
+    int64_t file_size = sdcard_get_file_size(rel_path);
     if (file_size <= 0) {
         ESP_LOGE(TAG, "Cannot get font file size");
         font_state.font_available = false;
@@ -97,17 +117,20 @@ esp_err_t font_init(const char *font_path)
     font_state.font_file_size = (uint32_t)file_size;
 
     // Determine font size from file size
-    // Each character takes font_size/8 * font_size bytes
-    // GB2312 has 6763 characters total (but typically files contain subsets)
-    // For standard fonts:
-    // 12x12 font: 18 bytes/char, total ~121734 bytes
-    // 16x16 font: 32 bytes/char, total ~216416 bytes
-    // 24x24 font: 72 bytes/char, total ~486456 bytes
+    // Standard GB2312 font file contains 8178 characters (94*87 matrix)
+    // Calculate expected file sizes:
+    // 12x12 font: 18 bytes/char * 8178 = 147204 bytes
+    // 16x16 font: 32 bytes/char * 8178 = 261696 bytes
+    // 24x24 font: 72 bytes/char * 8178 = 588816 bytes
+    // 32x32 font: 128 bytes/char * 8178 = 1046784 bytes
 
-    // Try to detect font size
+    // Try to detect font size by checking if file size matches expected character count
+    // Allow some tolerance (±5%) for different font file formats
     for (int i = 0; i < FONT_INFO_COUNT; i++) {
-        if (file_size > font_info_table[i].bitmap_size * 3400 &&
-            file_size < font_info_table[i].bitmap_size * 7000) {
+        int expected_size = font_info_table[i].bitmap_size * 8178;  // Standard GB2312 char count
+
+        // Check for exact match first
+        if (file_size == expected_size) {
             font_state.font_size = font_info_table[i].size;
             font_state.char_width = font_info_table[i].width;
             font_state.char_height = font_info_table[i].height;
@@ -119,6 +142,33 @@ esp_err_t font_init(const char *font_path)
                      font_state.char_bitmap_size, (unsigned long long)file_size);
             return ESP_OK;
         }
+    }
+
+    // Special case: accept known HZK16 variants with extended character sets
+    // Some HZK16 files contain additional GBK characters beyond standard GB2312
+    // 267616 bytes = 32 * 8363 chars (includes GBK extension, has 64-byte header)
+    // 261696 bytes = 32 * 8178 chars (standard GB2312)
+    if (file_size == 267616 || file_size == 261696) {
+        font_state.font_size = 16;
+        font_state.char_width = 16;
+        font_state.char_height = 16;
+        font_state.char_bitmap_size = 32;
+        font_state.font_available = true;
+
+        // Some HZK16 variants have a 64-byte header
+        if (file_size == 267616) {
+            font_state.header_offset = 64;
+            font_state.index_adjust = 0;  // Start with 0, can be adjusted via font_set_index_offset()
+            ESP_LOGI(TAG, "HZK16 font detected: 16x16 (32 bytes/char), file size: %llu (with 64-byte header)",
+                     (unsigned long long)file_size);
+            ESP_LOGI(TAG, "If Chinese chars display wrong, try calling font_set_index_offset() with different values");
+        } else {
+            font_state.header_offset = 0;
+            font_state.index_adjust = 0;  // Standard format
+            ESP_LOGI(TAG, "HZK16 font detected: 16x16 (32 bytes/char), file size: %llu",
+                     (unsigned long long)file_size);
+        }
+        return ESP_OK;
     }
 
     ESP_LOGW(TAG, "Font file size doesn't match known formats. File size: %llu",
@@ -142,6 +192,12 @@ esp_err_t font_deinit(void)
 bool font_is_chinese_available(void)
 {
     return font_state.initialized && font_state.font_available;
+}
+
+void font_set_index_offset(int offset)
+{
+    font_state.index_adjust = offset;
+    ESP_LOGI(TAG, "Font index offset set to: %d", offset);
 }
 
 int font_get_char_byte_size(int size)
@@ -186,39 +242,35 @@ int font_load_char_bitmap(uint8_t char_hi, uint8_t char_lo, int size,
         return 0;
     }
 
-    int64_t file_offset = char_idx * (int64_t)font_state.char_bitmap_size;
+    int64_t file_offset = font_state.header_offset + char_idx * (int64_t)font_state.char_bitmap_size;
 
-    // Read character bitmap from file
-    // Since sdcard_read_file reads entire file, we need to be careful with memory
-    // For now, we use a static buffer approach for commonly used characters
-
-    // Maximum safe allocation - don't read the entire file at once
-    const size_t max_read_size = 65536;  // 64KB max per read
-    uint8_t *temp_buffer = malloc(max_read_size);
-    if (!temp_buffer) {
-        ESP_LOGE(TAG, "Memory allocation failed");
-        return 0;
+    // Debug logging for first few characters
+    static int debug_count = 0;
+    if (debug_count < 5) {
+        ESP_LOGI(TAG, "Char 0x%02X%02X: idx=%ld, offset=%lld", char_hi, char_lo, (long)char_idx, file_offset);
+        debug_count++;
     }
 
-    size_t read_size = max_read_size;
-    esp_err_t ret = sdcard_read_file(font_state.font_path, temp_buffer, &read_size);
+    // Read character bitmap directly at offset
+    size_t read_size = font_state.char_bitmap_size;
+    
+    // Remove /sdcard prefix if present (sdcard functions add it)
+    const char *rel_path = font_state.font_path;
+    if (strncmp(rel_path, "/sdcard/", 8) == 0) {
+        rel_path = font_state.font_path + 8;
+    }
+    
+    esp_err_t ret = sdcard_read_file_offset(rel_path, (size_t)file_offset, buffer, &read_size);
 
     if (ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to read font file");
-        free(temp_buffer);
+        ESP_LOGE(TAG, "Failed to read font file at offset %lld", file_offset);
         return 0;
     }
 
-    // Check if character is within the read data
-    if (file_offset + (int64_t)font_state.char_bitmap_size > (int64_t)read_size) {
-        ESP_LOGW(TAG, "Character at offset %lld is beyond readable file portion", file_offset);
-        free(temp_buffer);
+    if (read_size != (size_t)font_state.char_bitmap_size) {
+        ESP_LOGW(TAG, "Incomplete read: got %zu, expected %d", read_size, font_state.char_bitmap_size);
         return 0;
     }
-
-    // Copy character bitmap to output buffer
-    memcpy(buffer, &temp_buffer[file_offset], font_state.char_bitmap_size);
-    free(temp_buffer);
 
     return font_state.char_bitmap_size;
 }

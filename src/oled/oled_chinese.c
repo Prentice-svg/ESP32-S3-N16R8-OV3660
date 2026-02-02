@@ -11,27 +11,30 @@
 #include "oled.h"
 
 static const char *TAG = "oled_chinese";
+static bool s_logged_first_char = false;
 
 /**
  * Draw a single GB2312 Chinese character
- * The character bitmap is expected to be in column-major format
- * (common for dot-matrix fonts)
+ * Standard HZK16 format (horizontal scanning):
+ * - 16x16 pixels, 32 bytes per character
+ * - Row-major: 2 bytes per row, 16 rows
+ * - Left to right, top to bottom
+ * - MSB of each byte is leftmost pixel
  */
 static void oled_draw_char_bitmap(int x, int y, const uint8_t *bitmap,
                                   int char_width, int char_height, bool on)
 {
     if (!bitmap) return;
 
-    // Draw bitmap on OLED buffer
-    // Bitmap format: each row is packed into bytes
+    // Standard HZK16 row-major format
+    int bytes_per_row = (char_width + 7) / 8;  // 2 for 16-pixel width
+
     for (int row = 0; row < char_height; row++) {
         for (int col = 0; col < char_width; col++) {
-            // Calculate byte position in bitmap
-            // Format: 1 byte per row (8 pixels wide), rows stacked
-            int byte_idx = row * ((char_width + 7) / 8) + col / 8;
-            int bit_idx = 7 - (col & 7);
+            int byte_idx = row * bytes_per_row + (col / 8);
+            int bit_idx = 7 - (col % 8);  // MSB is leftmost pixel
 
-            if (byte_idx < 256) {  // Safety check
+            if (byte_idx < char_height * bytes_per_row) {
                 uint8_t pixel = (bitmap[byte_idx] >> bit_idx) & 1;
                 if (pixel) {
                     oled_set_pixel(x + col, y + row, on);
@@ -48,11 +51,19 @@ int oled_draw_chinese_char(int x, int y, uint8_t char_hi, uint8_t char_lo, bool 
         return 0;
     }
 
-    // Get font size - we're hardcoding to 16pt for now
-    // To support other sizes, would need to change the API
-    const int font_size = 16;
-    int font_width, font_height;
+    // Get actual loaded font size (not hardcoded)
+    int font_size = 0;
+    if (font_get_info(&font_size, NULL) != ESP_OK || font_size <= 0) {
+        ESP_LOGW(TAG, "Cannot get font info");
+        return 0;
+    }
+    
+    int font_width = 0, font_height = 0;
     font_get_char_size(font_size, &font_width, &font_height);
+    if (font_width <= 0 || font_height <= 0) {
+        ESP_LOGW(TAG, "Invalid font dimensions");
+        return 0;
+    }
 
     // Load character bitmap
     uint8_t char_bitmap[256];  // Large enough for any size (32x32 = 128 bytes)
@@ -60,108 +71,205 @@ int oled_draw_chinese_char(int x, int y, uint8_t char_hi, uint8_t char_lo, bool 
                                             char_bitmap, sizeof(char_bitmap));
 
     if (bitmap_size <= 0) {
-        ESP_LOGW(TAG, "Character 0x%02X%02X not found in font", char_hi, char_lo);
+        ESP_LOGD(TAG, "Character 0x%02X%02X not found in font", char_hi, char_lo);
         return 0;
+    }
+
+    bool log_this_char = false;
+    if (!s_logged_first_char) {
+        log_this_char = true;
+    }
+
+    int before_on = 0;
+    if (log_this_char) {
+        char hexbuf[64] = {0};
+        int hexlen = 0;
+        int dump = bitmap_size < 16 ? bitmap_size : 16;
+        for (int i = 0; i < dump; i++) {
+            hexlen += snprintf(hexbuf + hexlen, sizeof(hexbuf) - hexlen, "%02X ", char_bitmap[i]);
+            if (hexlen >= (int)sizeof(hexbuf)) {
+                break;
+            }
+        }
+        ESP_LOGI(TAG, "First Chinese char 0x%02X%02X size=%d bytes, bytes=%s", char_hi, char_lo, bitmap_size, hexbuf);
+
+        for (int row = 0; row < font_height; row++) {
+            for (int col = 0; col < font_width; col++) {
+                if (oled_get_pixel_state(x + col, y + row)) {
+                    before_on++;
+                }
+            }
+        }
     }
 
     // Draw the character bitmap
     oled_draw_char_bitmap(x, y, char_bitmap, font_width, font_height, on);
+
+    if (log_this_char) {
+        char rowbuf[65];
+        int after_on = 0;
+        int max_cols = font_width;
+        if (max_cols >= (int)sizeof(rowbuf)) {
+            max_cols = sizeof(rowbuf) - 1;
+        }
+
+        for (int row = 0; row < font_height; row++) {
+            for (int col = 0; col < max_cols; col++) {
+                bool pixel_on = oled_get_pixel_state(x + col, y + row);
+                after_on += pixel_on ? 1 : 0;
+                rowbuf[col] = pixel_on ? '#' : '.';
+            }
+            rowbuf[max_cols] = '\0';
+            ESP_LOGI(TAG, "Row %02d (%d): %s", row, y + row, rowbuf);
+        }
+
+        ESP_LOGI(TAG, "Chinese block (%d,%d) %dx%d on-before=%d on-after=%d",
+                 x, y, font_width, font_height, before_on, after_on);
+        s_logged_first_char = true;
+    }
 
     return font_width;  // Return character width for positioning
 }
 
 int oled_draw_chinese_string(int x, int y, const char *str, bool on)
 {
-    if (!str || !font_is_chinese_available()) {
-        return 0;
-    }
+    int font_size = 0;
+    font_get_info(&font_size, NULL);
+    if (font_size <= 0) font_size = 16;  // fallback
+    return oled_draw_mixed_string(x, y, str, font_size, on);
+}
 
-    const int font_size = 16;
-    int font_width = 0;
-    font_get_char_size(font_size, &font_width, NULL);
-
-    int current_x = x;
-    int current_y = y;
-
-    // Parse UTF-8 encoded Chinese string
-    // In GB2312, each character is 2 bytes
-    const uint8_t *ptr = (const uint8_t *)str;
-
-    while (*ptr) {
-        // Check for Chinese character (high byte indicates GB2312)
-        if (*ptr >= 0xA1 && *ptr <= 0xF7) {
-            uint8_t char_hi = *ptr;
-            uint8_t char_lo = *(ptr + 1);
-
-            if (char_lo >= 0xA1 && char_lo <= 0xFE) {
-                // Valid GB2312 character
-                oled_draw_chinese_char(current_x, current_y, char_hi, char_lo, on);
-                current_x += font_width;
-                ptr += 2;
-
-                // Handle line wrapping
-                if (current_x + font_width > OLED_WIDTH) {
-                    current_x = x;
-                    current_y += font_width;  // Use font_width for line height
-
-                    if (current_y + font_width > OLED_HEIGHT) {
-                        break;  // No more space
-                    }
-                }
-                continue;
-            }
+/**
+ * Check if a byte sequence looks like GB2312 encoding (not UTF-8)
+ * GB2312: both bytes in range 0xA1-0xFE
+ * UTF-8 Chinese: starts with 0xE0-0xEF, followed by 0x80-0xBF continuation bytes
+ */
+static bool is_likely_gb2312(const uint8_t *str)
+{
+    if (!str) return false;
+    
+    while (*str) {
+        if (*str < 0x80) {
+            str++;
+            continue;
         }
-
-        // Skip invalid characters
-        ptr++;
+        
+        // Check for UTF-8 pattern (Chinese starts with 0xE0-0xEF)
+        if ((*str & 0xE0) == 0xE0 && (str[1] & 0xC0) == 0x80) {
+            return false;  // Looks like UTF-8
+        }
+        
+        // Check for GB2312 pattern (both bytes 0xA1-0xFE)
+        if (*str >= 0xA1 && *str <= 0xF7 && str[1] >= 0xA1 && str[1] <= 0xFE) {
+            return true;  // Looks like GB2312
+        }
+        
+        // Unknown high-byte pattern, skip
+        str++;
     }
-
-    return current_x - x;
+    return false;
 }
 
 int oled_draw_mixed_string(int x, int y, const char *str, int font_size, bool on)
 {
-    if (!str) return 0;
+    if (!str) {
+        return 0;
+    }
 
-    // Note: Currently only supports 16pt font for Chinese characters
-    // The font_size parameter is mainly used for spacing/layout calculations
-    const int chinese_font_size = 16;
+    // Get actual loaded font size if available
+    int actual_font_size = 0;
+    if (font_get_info(&actual_font_size, NULL) == ESP_OK && actual_font_size > 0) {
+        font_size = actual_font_size;
+    } else if (font_size <= 0) {
+        font_size = 16;  // fallback default
+    }
+
+    int chinese_width = font_size;
+    font_get_char_size(font_size, &chinese_width, NULL);
+    if (chinese_width <= 0) {
+        chinese_width = font_size;
+    }
 
     int current_x = x;
     int current_y = y;
-
     const uint8_t *ptr = (const uint8_t *)str;
+    
+    // Detect encoding: GB2312 or UTF-8
+    bool use_gb2312_direct = is_likely_gb2312(ptr);
 
     while (*ptr) {
-        // Check for GB2312 Chinese character
-        if (*ptr >= 0xA1 && *ptr <= 0xF7 && *(ptr + 1) >= 0xA1 && *(ptr + 1) <= 0xFE) {
-            uint8_t char_hi = *ptr;
-            uint8_t char_lo = *(ptr + 1);
-
-            // Only draw if Chinese font is available
-            if (font_is_chinese_available()) {
-                oled_draw_chinese_char(current_x, current_y, char_hi, char_lo, on);
-                current_x += chinese_font_size;
-            } else {
-                // Fallback: skip the character
-                current_x += font_size;
-            }
-            ptr += 2;
-        } else {
-            // ASCII character
-            if (*ptr >= 32 && *ptr < 127) {
-                current_x += oled_draw_char(current_x, current_y, *ptr, 1);
-            }
+        if (*ptr == '\n') {
+            current_x = x;
+            current_y += chinese_width;
             ptr++;
+            continue;
         }
 
-        // Handle line wrapping
-        if (current_x + font_size > OLED_WIDTH) {
-            current_x = x;
-            current_y += font_size;
+        if (*ptr < 0x80) {
+            // ASCII character
+            if (current_x + 8 > OLED_WIDTH) {
+                current_x = x;
+                current_y += chinese_width;
+                if (current_y + chinese_width > OLED_HEIGHT) {
+                    break;
+                }
+            }
+            current_x += oled_draw_char_color(current_x, current_y, (char)*ptr, 1, on);
+            ptr++;
+            continue;
+        }
 
-            if (current_y + font_size > OLED_HEIGHT) {
+        // Check line wrapping before drawing Chinese character
+        if (current_x + chinese_width > OLED_WIDTH) {
+            current_x = x;
+            current_y += chinese_width;
+            if (current_y + chinese_width > OLED_HEIGHT) {
                 break;
+            }
+        }
+
+        if (use_gb2312_direct) {
+            // Direct GB2312: two consecutive high bytes
+            uint8_t char_hi = *ptr++;
+            uint8_t char_lo = *ptr ? *ptr++ : 0;
+            
+            if (font_is_chinese_available() && font_is_valid_gb2312(char_hi, char_lo)) {
+                int drawn = oled_draw_chinese_char(current_x, current_y, char_hi, char_lo, on);
+                if (drawn > 0) {
+                    current_x += drawn;
+                } else {
+                    // Draw failed, show placeholder and advance
+                    current_x += oled_draw_char_color(current_x, current_y, '#', 1, on);
+                    current_x += oled_draw_char_color(current_x, current_y, '#', 1, on);
+                }
+            } else {
+                // Font not available or invalid GB2312, show placeholder
+                current_x += oled_draw_char_color(current_x, current_y, '*', 1, on);
+                current_x += oled_draw_char_color(current_x, current_y, '*', 1, on);
+            }
+        } else {
+            // UTF-8: decode and convert to GB2312
+            const uint8_t *before = ptr;
+            uint8_t char_hi = 0;
+            uint8_t char_lo = 0;
+            bool converted = font_utf8_to_gb2312(&ptr, &char_hi, &char_lo);
+
+            if (converted && font_is_chinese_available()) {
+                int drawn = oled_draw_chinese_char(current_x, current_y, char_hi, char_lo, on);
+                if (drawn > 0) {
+                    current_x += drawn;
+                } else {
+                    // Draw failed, show placeholder
+                    current_x += oled_draw_char_color(current_x, current_y, '#', 1, on);
+                    current_x += oled_draw_char_color(current_x, current_y, '#', 1, on);
+                }
+            } else {
+                // Conversion failed or font unavailable, fallback to placeholder
+                current_x += oled_draw_char_color(current_x, current_y, '?', 1, on);
+                if (!converted && ptr == before) {
+                    // Avoid stalling if decoder failed without consuming input
+                    ptr = before + 1;
+                }
             }
         }
     }
