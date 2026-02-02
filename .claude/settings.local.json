@@ -20,7 +20,23 @@
       "mcp__web-reader__webReader",
       "Bash(python3:*)",
       "Bash(git add:*)",
-      "Bash(git rm:*)"
+      "Bash(git rm:*)",
+      "Bash(git commit:*)",
+      "Bash(clang:*)",
+      "Bash(__NEW_LINE_a5b39677d96b0743__ echo \"\")",
+      "Bash(hexdump -C echo \"\" echo \"=== 偏移 0x140 \\(320字节, 可能的正确位置\\): ===\" dd if=/Users/prentice/Develop/ESP32-S3-N16R8-OV3660/ref/HZK16 bs=1 skip=320 count=32)",
+      "Bash(# GB2312 标点符号在 1-3 区 # 0xA1 0xA1 = 、（第一个符号） # 让我们检查文件中这些位置的数据 echo \"\"=== 跳过 64 字节头后的前 128 字节（前4个字符）: ===\"\" dd if=/Users/prentice/Develop/ESP32-S3-N16R8-OV3660/ref/HZK16 bs=1 skip=64 count=128)",
+      "Bash(. ~/export-esp.sh)",
+      "Bash(# 找到ESP-IDF的路径 find /Users -name \"\"idf.py\"\" -type f)",
+      "Bash(# 查找所有可能的 HZK16 文件 find /Users/prentice/Develop/ESP32-S3-N16R8-OV3660 -name \"\"*HZK*\"\" -o -name \"\"*GB2312*\"\" -o -name \"\"*.fon\"\")",
+      "Bash(xargs:*)",
+      "Bash(__NEW_LINE_fe8e0e2ea226a4d9__ echo \"\")",
+      "Bash(# 检查 \"\"就\"\" 字 \\(0xBECD\\) 应该在的位置 # 索引 = \\(0xBE - 0xA1\\) * 94 + \\(0xCD - 0xA1\\) = 29 * 94 + 44 = 2770 # 偏移 = 2770 * 32 = 88640 echo \"\"=== font/GB2312-16.fon 中 0xBECD 的位置 \\(偏移 88640\\): ===\"\" dd if=/Users/prentice/Develop/ESP32-S3-N16R8-OV3660/font/GB2312-16.fon bs=1 skip=88640 count=32)",
+      "Bash(hexdump -C echo \"\" echo \"=== ref/HZK16 中 0xBECD 的位置 \\(偏移 88640 + 64 = 88704\\): ===\" dd if=/Users/prentice/Develop/ESP32-S3-N16R8-OV3660/ref/HZK16 bs=1 skip=88704 count=32)",
+      "Bash(hexdump -C echo \"\" echo \"=== ref/HZK16 不加64字节头 \\(偏移 88640\\): ===\" dd if=/Users/prentice/Develop/ESP32-S3-N16R8-OV3660/ref/HZK16 bs=1 skip=88640 count=32)",
+      "Bash(git push:*)",
+      "Bash(# 重置最后一次提交，但保留更改\ngit reset --soft HEAD~1\n\n# 移除 HZK16 文件\ngit reset ref/HZK16\n\n# 重新提交（不包含 HZK16）\ngit commit -m \"\"$\\(cat <<''EOF''\nFix HZK16 font format support and Chinese display\n\n- Add support for 267616-byte HZK16 variant with 64-byte header\n- Add font_set_index_offset\\(\\) for tuning different HZK16 formats  \n- Add UTF-8 to GB2312 encoding conversion for mixed strings\n- Fix string literal hex escape sequence warnings\n- Add sdcard_read_file_offset\\(\\) for direct font file access\n- Add oled_get_pixel_state\\(\\) debug helper\n- Remove temporary test images from ref/\n\nNote: HZK16 font file \\(267KB\\) is too large for git. \nUsers should copy ref/HZK16 to SD card /font/GB2312-16.fon manually.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\"\")",
+      "Bash(# 重置到上一个提交，但保留更改\ngit reset --soft HEAD~1\n\n# 移除大文件\ngit reset src/font/font_encoding_table.inc\n\n# 重新提交（不包含大的编码表）\ngit commit -m \"\"$\\(cat <<''EOF''\nFix HZK16 font format support and Chinese display\n\n- Add support for 267616-byte HZK16 variant with 64-byte header\n- Add font_set_index_offset\\(\\) for tuning different HZK16 formats  \n- Add UTF-8 to GB2312 encoding conversion \\(runtime\\)\n- Fix string literal hex escape sequence warnings\n- Add sdcard_read_file_offset\\(\\) for direct font file access\n- Add oled_get_pixel_state\\(\\) debug helper\n- Remove temporary test images from ref/\n\nNote: Font encoding table omitted to keep repository size small.\nUTF-8 to GB2312 conversion now uses direct mapping.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n\\)\"\")"
     ]
   }
 }

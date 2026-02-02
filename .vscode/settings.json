@@ -28,6 +28,14 @@
         "/^python3 -m platformio run -e esp32s3cam 2>&1 \\| tail -60$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^python3 -m platformio run -e esp32s3cam 2>&1 \\| tail -30$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^cd /Users/prentice/Develop/ESP32-S3-N16R8-OV3660 && python3 - <<'PY'\nfrom PIL import Image\npath = 'ref/debug/IMAGE 2026-02-02 18:03:50\\.jpg'\nimg = Image\\.open\\(path\\)\nw,h = img\\.size\ncrop = img\\.crop\\(\\(0, h-400, 400, h\\)\\) # bottom-left\ncrop = crop\\.convert\\('L'\\)\\.resize\\(\\(80,60\\)\\)\nchars = list\\(\" \\.:-=\\+\\*#%@\"\\)\nfor y in range\\(crop\\.height\\):\n    row = ''\n    for x in range\\(crop\\.width\\):\n        val = crop\\.getpixel\\(\\(x,y\\)\\)\n        idx = int\\(val/256\\*len\\(chars\\)\\)\n        idx = min\\(max\\(idx,0\\), len\\(chars\\)-1\\)\n        row \\+= chars\\[-1-idx\\]\n    print\\(row\\)\nPY$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
