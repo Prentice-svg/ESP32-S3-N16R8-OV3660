@@ -30,8 +30,8 @@ static struct {
 } font_state = {0};
 
 // Font file structure info
-// GB2312-12: 12x12 pixels = 18 bytes per character (12*12/8=18)
-// GB2312-16: 16x16 pixels = 32 bytes per character (16*16/8=32)
+// HZK12: 12x12 pixels = 24 bytes per character (12 rows × 2 bytes/row)
+// HZK16: 16x16 pixels = 32 bytes per character (16 rows × 2 bytes/row)
 // GB2312-24: 24x24 pixels = 72 bytes per character (24*24/8=72)
 // GB2312-32: 32x32 pixels = 128 bytes per character (32*32/8=128)
 
@@ -41,8 +41,8 @@ static const struct {
     int height;
     int bitmap_size;
 } font_info_table[] = {
-    {12, 12, 12, 18},
-    {16, 16, 16, 32},
+    {12, 12, 12, 24},   // HZK12: 12 rows × 2 bytes = 24 bytes
+    {16, 16, 16, 32},   // HZK16: 16 rows × 2 bytes = 32 bytes
     {24, 24, 24, 72},
     {32, 32, 32, 128},
 };
