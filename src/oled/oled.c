@@ -13,6 +13,8 @@
 #include "driver/i2c.h"
 #include "jpeg_decoder.h"
 #include "oled.h"
+#include "font.h"
+#include "oled_chinese.h"
 
 static const char *TAG = "oled";
 
@@ -578,11 +580,11 @@ void oled_show_timelapse_status(bool running, uint32_t current, uint32_t total,
                                  uint32_t interval, uint32_t next_sec)
 {
     oled_clear();
-    
+
     // Title bar
     oled_draw_string(0, 0, "TIMELAPSE", 1);
     oled_draw_hline(0, 10, 128, true);
-    
+
     // Status
     if (running) {
         oled_draw_string(100, 0, "RUN", 1);
@@ -590,26 +592,26 @@ void oled_show_timelapse_status(bool running, uint32_t current, uint32_t total,
     } else {
         oled_draw_string(92, 0, "STOP", 1);
     }
-    
+
     // Progress
     char buf[32];
     snprintf(buf, sizeof(buf), "%lu/%lu", (unsigned long)current, (unsigned long)total);
     oled_draw_string(0, 16, buf, 2);
-    
+
     // Progress bar
     int percent = total > 0 ? (current * 100 / total) : 0;
     oled_draw_progress(0, 38, 128, 10, percent);
-    
+
     // Next shot countdown
     if (running && next_sec > 0) {
         snprintf(buf, sizeof(buf), "Next: %lus", (unsigned long)next_sec);
         oled_draw_string(0, 52, buf, 1);
     }
-    
+
     // Interval
     snprintf(buf, sizeof(buf), "Int: %lus", (unsigned long)interval);
     oled_draw_string(72, 52, buf, 1);
-    
+
     oled_update();
 }
 
@@ -617,74 +619,143 @@ void oled_show_system_info(int battery_pct, bool charging, bool wifi_connected,
                            bool sd_mounted, const char *ip_addr)
 {
     oled_clear();
-    
+
     // Title
     oled_draw_string(0, 0, "SYSTEM INFO", 1);
     oled_draw_hline(0, 10, 128, true);
-    
+
     // Icons row
     oled_draw_battery(0, 16, battery_pct, charging);
     oled_draw_wifi(20, 16, wifi_connected);
     oled_draw_sdcard(36, 16, sd_mounted);
-    
+
     // Battery percentage
     char buf[32];
     snprintf(buf, sizeof(buf), "%d%%", battery_pct);
     oled_draw_string(50, 16, buf, 1);
-    
+
     // IP address
     if (ip_addr && wifi_connected) {
         oled_draw_string(0, 32, "IP:", 1);
         oled_draw_string(24, 32, ip_addr, 1);
     }
-    
+
     // Menu hint
     oled_draw_string(0, 52, "K1:Menu K2:Start K3:Stop", 1);
-    
+
     oled_update();
 }
 
 void oled_show_menu(const char **items, int count, int selected)
 {
+    if (!items || count <= 0) return;
+
     oled_clear();
-    
-    // Title bar with divider
-    oled_draw_string(0, 0, "MENU", 1);
-    oled_draw_hline(0, 10, 128, true);
 
-    // Calculate visible items (max 5 rows)
-    int start = 0;
-    int visible = 5;
-    if (selected >= visible) {
-        start = selected - visible + 1;
-    }
-
-    // Draw items with highlighted bar and inverted text
-    for (int i = 0; i < visible && (start + i) < count; i++) {
-        int y = 14 + i * 10;
-        bool is_sel = (start + i) == selected;
-
-        if (is_sel) {
-            oled_fill_rect(0, y - 1, 128, 10, true);  // highlight bar
-            oled_draw_string_color(6, y, items[start + i], 1, false); // black text on white bar
-        } else {
-            oled_draw_string_color(6, y, items[start + i], 1, true);  // normal white text
-        }
-
-        // Left indicator bar for selected
-        if (is_sel) {
-            oled_fill_rect(0, y - 1, 3, 10, false); // thin dark stripe for contrast
+    // Check if menu items contain Chinese characters (non-ASCII)
+    bool has_chinese = false;
+    if (items[0]) {
+        const unsigned char *s = (unsigned char *)items[0];
+        while (*s) {
+            if (*s >= 0x80) {  // UTF-8 extended character (likely Chinese)
+                has_chinese = true;
+                break;
+            }
+            s++;
         }
     }
 
-    // Scroll indicator on right side
-    if (count > visible) {
-        int bar_height = 8;
-        int rail_height = visible * 10;
-        int top = 14;
-        int pos = (rail_height - bar_height) * selected / (count - 1);
-        oled_draw_rect(123, top, 4, rail_height, true);
-        oled_fill_rect(124, top + pos, 2, bar_height, true);
+    if (has_chinese) {
+        // Chinese menu display - adapted for 16x16 Chinese characters
+        // Title bar with divider
+        oled_draw_string(0, 0, "MENU", 1);
+        oled_draw_hline(0, 10, 128, true);
+
+        // Calculate visible items (max 3 for Chinese with 16x16 font)
+        int start = 0;
+        int visible = 3;
+        if (selected >= visible) {
+            start = selected - visible + 1;
+        }
+
+        // Draw Chinese menu items with proper spacing for 16x16 characters
+        // Each Chinese character is 16x16, so we use larger spacing
+        for (int i = 0; i < visible && (start + i) < count; i++) {
+            int y = 14 + i * 18;  // 18-pixel spacing for Chinese items
+            bool is_sel = (start + i) == selected;
+
+            if (is_sel) {
+                oled_fill_rect(0, y - 1, 128, 18, true);  // highlight bar
+                // Draw Chinese text in black on white bar
+                if (font_is_chinese_available()) {
+                    oled_draw_chinese_string(6, y, items[start + i], true);
+                } else {
+                    oled_draw_string_color(6, y, items[start + i], 1, false);
+                }
+            } else {
+                // Draw Chinese text normally
+                if (font_is_chinese_available()) {
+                    oled_draw_chinese_string(6, y, items[start + i], false);
+                } else {
+                    oled_draw_string_color(6, y, items[start + i], 1, true);
+                }
+            }
+
+            // Left indicator bar for selected
+            if (is_sel) {
+                oled_fill_rect(0, y - 1, 3, 18, false);
+            }
+        }
+
+        // Scroll indicator on right side
+        if (count > visible) {
+            int bar_height = 8;
+            int rail_height = visible * 18;
+            int top = 14;
+            int pos = (rail_height - bar_height) * selected / (count - 1);
+            oled_draw_rect(123, top, 4, rail_height, true);
+            oled_fill_rect(124, top + pos, 2, bar_height, true);
+        }
+    } else {
+        // ASCII menu display - original code
+        // Title bar with divider
+        oled_draw_string(0, 0, "MENU", 1);
+        oled_draw_hline(0, 10, 128, true);
+
+        // Calculate visible items (max 5 rows for ASCII)
+        int start = 0;
+        int visible = 5;
+        if (selected >= visible) {
+            start = selected - visible + 1;
+        }
+
+        // Draw items with highlighted bar and inverted text
+        for (int i = 0; i < visible && (start + i) < count; i++) {
+            int y = 14 + i * 10;
+            bool is_sel = (start + i) == selected;
+
+            if (is_sel) {
+                oled_fill_rect(0, y - 1, 128, 10, true);  // highlight bar
+                oled_draw_string_color(6, y, items[start + i], 1, false); // black text on white bar
+            } else {
+                oled_draw_string_color(6, y, items[start + i], 1, true);  // normal white text
+            }
+
+            // Left indicator bar for selected
+            if (is_sel) {
+                oled_fill_rect(0, y - 1, 3, 10, false); // thin dark stripe for contrast
+            }
+        }
+
+        // Scroll indicator on right side
+        if (count > visible) {
+            int bar_height = 8;
+            int rail_height = visible * 10;
+            int top = 14;
+            int pos = (rail_height - bar_height) * selected / (count - 1);
+            oled_draw_rect(123, top, 4, rail_height, true);
+            oled_fill_rect(124, top + pos, 2, bar_height, true);
+        }
     }
 
     oled_update();

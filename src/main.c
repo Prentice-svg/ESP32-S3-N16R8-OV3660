@@ -36,6 +36,8 @@
 #include "power.h"
 #include "lcd.h"
 #include "oled.h"
+#include "oled_chinese.h"
+#include "font.h"
 #include "camera_pins.h"
 
 static const char *TAG = "main";
@@ -63,12 +65,12 @@ typedef enum {
 static screen_mode_t current_screen = SCREEN_STATUS;
 static int menu_selection = 0;
 static const char *menu_items[] = {
-    "Start Timelapse",
-    "Stop Timelapse", 
-    "Single Capture",
-    "Live Preview",
-    "System Info",
-    "Deep Sleep"
+    "\xbf\xaa\xca\xbc\xd1\xd3\xca\xb1",   // 开始延时 (Start Timelapse)
+    "\xcd\xa3\xd6\xb9\xd1\xd3\xca\xb1",   // 停止延时 (Stop Timelapse)
+    "\xb5\xa5\xd5\xc5\xc5\xc4\xc9\xe3",   // 单张拍摄 (Single Capture)
+    "\xca\xb5\xca\xb1\xd4\xa4\xc0\xc0",   // 实时预览 (Live Preview)
+    "\xcf\xb5\xcd\xb3\xd0\xc5\xcf\xa2",   // 系统信息 (System Info)
+    "\xc9\xee\xb6\xc8\xcb\xaf\xc3\xdf"    // 深度睡眠 (Deep Sleep)
 };
 #define MENU_ITEM_COUNT 6
 
@@ -217,43 +219,43 @@ static void execute_menu_action(int selection)
                 timelapse_start();
                 ESP_LOGI(TAG, "Timelapse started via menu");
                 if (oled_init_success) {
-                    oled_show_message("Timelapse", "Started!", NULL);
+                    oled_show_message("\xd1\xd3\xca\xb1\xc9\xe3\xd3\xb0", "\xd2\xd1\xc6\xf4\xb6\xaf", NULL);
                     vTaskDelay(pdMS_TO_TICKS(1000));
                 }
             }
             current_screen = SCREEN_STATUS;
             break;
-            
+
         case 1:  // Stop Timelapse
             if (timelapse_get_state() == TIMELAPSE_RUNNING) {
                 timelapse_stop();
                 ESP_LOGI(TAG, "Timelapse stopped via menu");
                 if (oled_init_success) {
-                    oled_show_message("Timelapse", "Stopped!", NULL);
+                    oled_show_message("\xd1\xd3\xca\xb1\xc9\xe3\xd3\xb0", "\xd2\xd1\xcd\xa3\xd6\xb9", NULL);
                     vTaskDelay(pdMS_TO_TICKS(1000));
                 }
             }
             current_screen = SCREEN_STATUS;
             break;
-            
+
         case 2:  // Single Capture
             {
                 if (oled_init_success) {
-                    oled_show_message("Capturing...", NULL, NULL);
+                    oled_show_message("\xc5\xc4\xc9\xe3\xd6\xd0", NULL, NULL);
                 }
                 camera_fb_t *fb = esp_camera_fb_get();
                 if (fb) {
                     char filename[64];
-                    snprintf(filename, sizeof(filename), "/sdcard/capture_%lu.jpg", 
+                    snprintf(filename, sizeof(filename), "/sdcard/capture_%lu.jpg",
                              (unsigned long)(esp_timer_get_time() / 1000000));
                     sdcard_write_file(filename, fb->buf, fb->len);
-                    
+
                     // Show preview on OLED before returning frame buffer
                     if (oled_init_success) {
                         oled_show_preview(fb->buf, fb->len);
                         vTaskDelay(pdMS_TO_TICKS(2000));  // Show preview for 2 seconds
                     }
-                    
+
                     esp_camera_fb_return(fb);
                     ESP_LOGI(TAG, "Single capture saved: %s", filename);
                 }
@@ -273,7 +275,7 @@ static void execute_menu_action(int selection)
         case 5:  // Deep Sleep
             ESP_LOGI(TAG, "Entering deep sleep via menu...");
             if (oled_init_success) {
-                oled_show_message("Going to", "Deep Sleep...", "Press BOOT to wake");
+                oled_show_message("\xc9\xee\xb6\xc8\xcb\xaf\xc3\xdf", "\xb0\xb4\x42\x4f\x4f\x54\xbb\xbd\xd0\xd1", NULL);
                 vTaskDelay(pdMS_TO_TICKS(2000));
                 oled_display_on(false);
             }
@@ -323,7 +325,7 @@ static void button_task(void *pvParameters)
                     if (hold_time >= 3000) {
                         ESP_LOGI(TAG, "Entering deep sleep...");
                         if (oled_init_success) {
-                            oled_show_message("Deep Sleep...", NULL, NULL);
+                            oled_show_message("\xc9\xee\xb6\xc8\xcb\xaf\xc3\xdf\x2e\x2e\x2e", NULL, NULL);
                             vTaskDelay(pdMS_TO_TICKS(500));
                             oled_display_on(false);
                         }
@@ -554,8 +556,16 @@ void app_main(void)
     ret = oled_init(OLED_SDA_PIN, OLED_SCL_PIN, OLED_I2C_ADDR);
     if (ret == ESP_OK) {
         oled_init_success = true;
-        oled_show_message("Timelapse Cam", "Initializing...", NULL);
+        oled_show_message("\xd1\xd3\xca\xb1\xcf\xe0\xbb\xfa", "\xb3\xf5\xca\xbc\xbb\xaf\xd6\xd0", NULL);
         ESP_LOGI(TAG, "OLED display initialized");
+
+        // Initialize Chinese font for OLED menu
+        ret = font_init("/font/GB2312-16.fon");
+        if (ret == ESP_OK) {
+            ESP_LOGI(TAG, "Chinese font loaded successfully");
+        } else {
+            ESP_LOGW(TAG, "Chinese font not available: %s", esp_err_to_name(ret));
+        }
     } else {
         ESP_LOGW(TAG, "OLED not found (SDA=%d, SCL=%d)", OLED_SDA_PIN, OLED_SCL_PIN);
     }
@@ -586,9 +596,9 @@ void app_main(void)
 
     // Show ready screen on OLED
     if (oled_init_success) {
-        oled_show_message("Ready!", 
-                          wifi_is_connected() ? wifi_get_ip_address() : "WiFi Off",
-                          "K1:Menu K2:Start");
+        oled_show_message("\xbe\xcd\xd0\xf7",
+                          wifi_is_connected() ? wifi_get_ip_address() : "\x57\x69\x46\x69\xb9\xd8\xb1\xd5",
+                          "\x4b\x31\xb2\xcb\xb5\xa5\x20\x4b\x32\xbf\xaa\xca\xbc");
         vTaskDelay(pdMS_TO_TICKS(2000));
         update_oled_display();
     }
